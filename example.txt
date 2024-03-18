@@ -1,0 +1,9 @@
+GET REQUEST EXAMPLE:
+
+{
+    "fields":["seller_id,..."] or "*"
+    "filters":[
+        {"seller_id": 123}, {"seller_id": 123, "contact_number": "123"}
+    ],
+    "page_size": 10 -- optional
+}
