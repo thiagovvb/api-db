@@ -9,5 +9,5 @@ conf = json.loads(file)
 sqliteConnection = sqlite3.connect('database.db')
 
 handler = genApiHandler(None, conf)
-r = handler.handle_request("GET","/no",{})
+r = handler.handle_request("GET","/seller",{'fields': ['seller_id'], "filters": [{"seller_id": 123}, {"seller_id": 324, "contact_number": "aaa"}]})
 print(r)

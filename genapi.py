@@ -1,5 +1,7 @@
 import logging
 import sys
+import uuid
+import datetime
 
 #remove later
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
@@ -23,13 +25,29 @@ class genApiHandler:
         and request_body is the content of the request
         """
 
-        if 'request_name' not in self.api_conf:
+        if request_name not in self.api_conf:
             return self.format_api_response(404, f"The endpoint \"{request_name}\" does not exist.")
         
         if request_type == 'GET':
             return self.handle_get(request_name, request_body)
         
-    def handle_get(self, request_name, request_body):
+    def check_format_value(self, field_name: str, field_value, fields_obj: dict):
+
+        field_type = fields_obj[field_name]
+
+        try:
+            if field_type == 'integer':
+                return int(field_value)
+            elif field_type == 'float':
+                return float(field_value)
+            elif field_type == 'varchar':
+                return str(field_value)
+            elif field_type == 'datetime':
+                return datetime.datetime.strptime(field_value,'%Y-%m-%dT%H:%M:%S').strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return None
+                
+    def handle_get(self, request_name: str, request_body: dict):
 
         """
         Validates and then handle get requests
@@ -43,15 +61,52 @@ class genApiHandler:
         if 'fields' not in request_body:
             return self.format_api_response(500, f"Wrong query format: \"fields\" not provided.") 
         
-        page_size = request_body['page_size'] if 'page_size' in request_body else 50
+        try:
+            page_size = int(request_body['page_size']) if 'page_size' in request_body and int(request_body['page_size']) <= 50 else 50
 
-        #Check if the user asked for inexistent fields
-        inexistent_fields = [v for v in request_body['filters'] if v not in template['fields']]
-        if len(inexistent_fields) > 0:
-            return self.format_api_response(500, f"Invalid fields asked: {','.join(inexistent_fields)}") 
+            if page_size < 0:
+                raise ValueError("Invalid page size number")
+
+        except ValueError:
+            return self.format_api_response(500, f"Invalid page size provided: \"{request_body['page_size']}\".")  
+
+        try:
+            page = int(request_body['page']) if 'page' in request_body else 0
+
+            if page < 0:
+                raise ValueError("Invalid page number")
+            
+        except ValueError:
+            return self.format_api_response(500, f"Invalid page size provided: \"{request_body['page_size']}\".")  
         
+        queries_and = []
+        query_values = {}
+        i = 0
+
         for query_block in request_body['filters']:
-            for query in 
+            query_or = []
+            j = 0
+            for key,value in query_block.items():
+
+                if key not in template['fields']:
+                    return self.format_api_response(500, f"Invalid field provided: \"{key}\".")  
+
+                formatted_value = self.check_format_value(key, value, template['fields'])
+
+                if not formatted_value:
+                    return self.format_api_response(500, f"Invalid value provided of type \"{template['fields'][key]}\" for field \"{key}\": {value}") 
+                
+                query_or.append(f"{key} = %({i}{j}_key)s")
+                query_values[f"{i}{j}_key"] = formatted_value
+                j += 1
+
+            queries_and.append('(' + ' OR '.join(query_or) + ')')
+            i += 1
+        
+        query_where = ' AND '.join(queries_and)
+        print(query_values)
+        print(query_where)
+
 
         
 

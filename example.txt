@@ -6,4 +6,5 @@ GET REQUEST EXAMPLE:
         {"seller_id": 123}, {"seller_id": 123, "contact_number": "123"}
     ],
     "page_size": 10 -- optional
+    "page": 0 -- optional
 }
