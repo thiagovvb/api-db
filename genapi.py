@@ -80,8 +80,12 @@ class genApiHandler:
             return self.format_api_response(500, f"Invalid page size provided: \"{request_body['page_size']}\".")  
         
         queries_and = []
-        query_values = {}
+        query_values = []
         i = 0
+
+        for field in request_body['fields']:
+            if field not in template['fields']:
+                return self.format_api_response(500, f"Field does not exist: \"{field}\".")
 
         for query_block in request_body['filters']:
             query_or = []
@@ -96,16 +100,32 @@ class genApiHandler:
                 if not formatted_value:
                     return self.format_api_response(500, f"Invalid value provided of type \"{template['fields'][key]}\" for field \"{key}\": {value}") 
                 
-                query_or.append(f"{key} = %({i}{j}_key)s")
-                query_values[f"{i}{j}_key"] = formatted_value
+                query_or.append(f"{key} = ?")
+                query_values.append(formatted_value)
                 j += 1
 
-            queries_and.append('(' + ' OR '.join(query_or) + ')')
+            queries_and.append('(' + ' AND '.join(query_or) + ')')
             i += 1
         
-        query_where = ' AND '.join(queries_and)
+        query_where = ' OR '.join(queries_and)
+
+        cursor = self.db_connection.cursor()
         print(query_values)
-        print(query_where)
+        print(f"SELECT {','.join(request_body['fields'])} FROM {template['table_name']} WHERE " + query_where)
+        cursor.execute(f"SELECT {','.join(request_body['fields'])} FROM {template['table_name']} WHERE " + query_where, query_values)
+
+        return_body =  []
+
+        result_query = cursor.fetchall() or []
+        print(f"result query: {result_query}")
+
+        for element in result_query:
+            data_element = {}
+            for i in range(len(request_body['fields'])):
+                data_element[request_body['fields'][i]] = element[i]
+            return_body.append(data_element)
+            
+        print(f"Response: {return_body}")
 
 
         
